@@ -115,19 +115,19 @@ USD, EUR, GBP, JPY, HKD, AUD, CAD, SGD, NZD, KRW, THB, CHF, SEK, DKK, NOK, MOP, 
 ## CLI 用法
 
 ```
-Usage: calculator '<expression>'
+Usage: node dist/cli.js '<expression>'
 
 Math:
-  calculator '2 + 3 * 4'          → 14
-  calculator '(1 + 2) * 3'         → 9
-  calculator '2 ^ 10'              → 1024
-  calculator '100 % 7'             → 2
-  calculator '0.1 + 0.2'           → 0.3
+  node dist/cli.js '2 + 3 * 4'          → 14
+  node dist/cli.js '(1 + 2) * 3'         → 9
+  node dist/cli.js '2 ^ 10'              → 1024
+  node dist/cli.js '100 % 7'             → 2
+  node dist/cli.js '0.1 + 0.2'           → 0.3
 
 Currency (needs cached rates):
-  calculator '100 USD to CNY'      → 686.54 CNY
-  calculator '1000 CNY to JPY'     → 23225.57 JPY
-  calculator '50 EUR to USD'       → 58.29 USD
+  node dist/cli.js '100 USD to CNY'      → 686.54 CNY
+  node dist/cli.js '1000 CNY to JPY'     → 23225.57 JPY
+  node dist/cli.js '50 EUR to USD'       → 58.29 USD
 
 Flags:
   --offline    Use hardcoded rates (no network)
