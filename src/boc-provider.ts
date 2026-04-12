@@ -2,7 +2,11 @@ import { Decimal } from "decimal.js";
 import { ExchangeRateProvider } from "./exchange-rate.js";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { homedir } from "node:os";
+import { fileURLToPath } from "node:url";
+
+// Project root (dist/ → project root)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = dirname(__dirname);
 
 // Currency name → ISO code mapping (Chinese names from BOC page)
 const CN_NAME_TO_ISO: Record<string, string> = {
@@ -51,8 +55,7 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
   private cachePath: string;
 
   constructor(options?: { cachePath?: string }) {
-    const cacheDir = join(homedir(), ".cache", "calculator");
-    this.cachePath = options?.cachePath ?? join(cacheDir, "boc-rates.json");
+    this.cachePath = options?.cachePath ?? join(projectRoot, "cache", "boc-rates.json");
   }
 
   async getRate(from: string, to: string): Promise<Decimal> {
