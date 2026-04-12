@@ -1,0 +1,8 @@
+[Unit]
+Description=Warm BOC exchange rate cache for calculator
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/boc-warm
+User=<YOUR_USERNAME>

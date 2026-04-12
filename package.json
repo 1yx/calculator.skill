@@ -1,0 +1,21 @@
+{
+  "name": "calculator",
+  "version": "1.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "bin": {
+    "calculator": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "dev": "tsc && node dist/cli.js"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.2"
+  }
+}
