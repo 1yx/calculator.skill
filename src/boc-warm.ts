@@ -8,7 +8,7 @@
  * and saves to ~/.cache/calculator/boc-rates.json
  */
 
-import { BOCExchangeRateProvider } from "./boc-provider.js";
+import { BOCExchangeRateProvider } from "./providers/boc.js";
 
 async function main() {
   const provider = new BOCExchangeRateProvider();

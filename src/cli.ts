@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { evaluate, convertCurrency } from "./calculator.js";
-import { BOCExchangeRateProvider } from "./boc-provider.js";
+import { BOCExchangeRateProvider } from "./providers/boc.js";
 import { InMemoryExchangeRateProvider } from "./exchange-rate.js";
 
 function printUsage() {

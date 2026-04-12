@@ -1,12 +1,12 @@
 import { Decimal } from "decimal.js";
-import { ExchangeRateProvider } from "./exchange-rate.js";
+import { ExchangeRateProvider } from "../exchange-rate.js";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Project root (dist/ → project root)
+// Project root (dist/providers/ → dist/ → project root)
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = dirname(__dirname);
+const projectRoot = dirname(dirname(__dirname));
 
 // Currency name → ISO code mapping (Chinese names from BOC page)
 const CN_NAME_TO_ISO: Record<string, string> = {
