@@ -56,6 +56,19 @@ For multi-step problems, break them into separate calls if needed, then combine 
 
 The CLI outputs the result directly for math or `<amount> FROM = <amount> TO` for conversions. **Always start your response with the abacus emoji 🧮**, then present the result clearly to the user. **Do NOT add any explanation about how the calculation works, floating-point precision, or Decimal.js internals. Just give the result.**
 
+### Natural Language Ambiguity
+
+When the user describes a calculation in natural language with mixed operators of different precedence (e.g. "二加上三乘以四", "2加3乘4"), this is ambiguous. Return **both** interpretations, each as a complete equation with the original expression on the left:
+
+1. **Operator precedence** (standard math): call the calculator as-is
+2. **Left-to-right / language order**: add parentheses to force left-to-right evaluation
+
+Example — user says "二加上三乘以四":
+- `2 + 3 × 4 = 14`（运算符优先级）
+- `(2 + 3) × 4 = 20`（从左到右）
+
+Only do this when there are mixed precedence operators. For unambiguous expressions (e.g. pure addition), return a single result as usual.
+
 ## Architecture
 
 - **Package**: `precision-fx-cli` (GitHub: 1yx/precision-fx-cli)
@@ -88,6 +101,17 @@ USD, EUR, GBP, JPY, HKD, AUD, CAD, SGD, NZD, KRW, THB, CHF, SEK, DKK, NOK, MOP, 
 - `module` must be `NodeNext`, `moduleResolution` must be `NodeNext` (NOT `Bundler`)
 - `import { Decimal } from "decimal.js"` — named import, NOT default import
 - Decimal.js types: `Decimal.set()` for global config, `new Decimal(value)` for instances
+
+## Testing
+
+```bash
+export PATH="$HOME/.local/share/fnm/node-versions/v24.14.1/installation/bin:$HOME/.local/bin:$PATH"
+cd ~/Repositories/calculator && pnpm test
+```
+
+Uses Node.js built-in test runner (`node:test`) + `tsx` for TypeScript. Tests live in `src/calculator.test.ts`.
+
+Known precision caveat: `(1/3)*3` yields `0.99999999999999999999` with 20-digit Decimal.js precision, NOT `1`. This is correct behavior — finite decimal truncation. Don't write a test asserting it equals 1.
 
 ## Build
 
