@@ -1,4 +1,4 @@
-# precision-fx-cli
+# calculator.skill
 
 高精度计算器 + 实时汇率转换 CLI 工具。
 
@@ -18,8 +18,8 @@ $ node dist/cli.js '100 USD to CNY'
 
 ```bash
 # 克隆
-git clone git@github.com:1yx/precision-fx-cli.git
-cd precision-fx-cli
+git clone git@github.com:1yx/calculator.skill.git
+cd calculator.skill
 
 # 安装依赖（需要 Node.js >= 18，pnpm）
 pnpm install
@@ -60,15 +60,15 @@ node dist/cli.js --offline '100 USD to CNY'
 
 ```bash
 #!/bin/bash
-exec /path/to/node /path/to/precision-fx-cli/dist/boc-warm.js
+exec /path/to/node /path/to/calculator.skill/dist/boc-warm.js
 ```
 
-将 `/path/to/node` 替换为你的 node 可执行文件路径（`which node`），将 `/path/to/precision-fx-cli` 替换为项目实际路径。
+将 `/path/to/node` 替换为你的 node 可执行文件路径（`which node`），将 `/path/to/calculator.skill` 替换为项目实际路径。
 
 ```bash
 sudo tee /usr/local/bin/boc-warm > /dev/null << 'EOF'
 #!/bin/bash
-exec /path/to/node /path/to/precision-fx-cli/dist/boc-warm.js
+exec /path/to/node /path/to/calculator.skill/dist/boc-warm.js
 EOF
 sudo chmod +x /usr/local/bin/boc-warm
 ```
@@ -138,7 +138,7 @@ Flags:
 ## 项目结构
 
 ```
-precision-fx-cli/
+calculator.skill/
 ├── src/
 │   ├── calculator.ts      # 数学表达式解析器 + 汇率转换
 │   ├── boc-provider.ts    # 中行牌价抓取与缓存
