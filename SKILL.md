@@ -56,18 +56,22 @@ For multi-step problems, break them into separate calls if needed, then combine 
 
 The CLI outputs the result directly for math or `<amount> FROM = <amount> TO` for conversions. **Always start your response with the abacus emoji 🧮**, then present the result clearly to the user. **Do NOT add any explanation about how the calculation works, floating-point precision, or Decimal.js internals. Just give the result.**
 
-### Natural Language Ambiguity
+### Mixed Precedence Expressions
 
-When the user describes a calculation in natural language with mixed operators of different precedence (e.g. "二加上三乘以四", "2加3乘4"), this is ambiguous. Return **both** interpretations, each as a complete equation with the original expression on the left:
+When the expression contains mixed operators of different precedence (e.g. `2 + 3 * 4`, `45 - 67 + 89 × 8`, "二加上三乘以四"), this is ambiguous to a casual reader. Always return **both** interpretations as complete equations with the original expression on the left:
 
-1. **Operator precedence** (standard math): call the calculator as-is
-2. **Left-to-right / language order**: add parentheses to force left-to-right evaluation
+1. **运算符优先级** (standard math): call the calculator as-is
+2. **从左到右** (left-to-right): add parentheses to force sequential left-to-right evaluation
+
+Example — expression `45 - 67 + 89 × 8`:
+- `45 − 67 + 89 × 8 = 690`（运算符优先级）
+- `((45 − 67) + 89) × 8 = 544`（从左到右）
 
 Example — user says "二加上三乘以四":
 - `2 + 3 × 4 = 14`（运算符优先级）
 - `(2 + 3) × 4 = 20`（从左到右）
 
-Only do this when there are mixed precedence operators. For unambiguous expressions (e.g. pure addition), return a single result as usual.
+Only do this when the expression has operators of different precedence levels (e.g. `+` with `*`, `+` with `^`). Pure same-level operators (e.g. `2 + 3 + 4`) return a single result as usual.
 
 ## Architecture
 
