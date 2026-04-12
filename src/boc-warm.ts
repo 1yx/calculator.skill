@@ -14,7 +14,7 @@ async function main() {
   const provider = new BOCExchangeRateProvider();
 
   try {
-    const cache = await provider.fetchRates();
+    const cache = await provider.refreshRates();
     console.log(`✅ BOC rates cached: ${cache.entries.length} currencies`);
     console.log(`   Updated: ${cache.entries[0]?.fetchedAt}`);
     // Show a few sample rates

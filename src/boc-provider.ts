@@ -3,7 +3,6 @@ import { ExchangeRateProvider } from "./exchange-rate.js";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
-import { fileURLToPath } from "node:url";
 
 // Currency name → ISO code mapping (Chinese names from BOC page)
 const CN_NAME_TO_ISO: Record<string, string> = {
@@ -50,12 +49,10 @@ export interface BOCRateCache {
 
 export class BOCExchangeRateProvider implements ExchangeRateProvider {
   private cachePath: string;
-  private cacheTTL: number; // ms
 
-  constructor(options?: { cachePath?: string; cacheTTLMinutes?: number }) {
+  constructor(options?: { cachePath?: string }) {
     const cacheDir = join(homedir(), ".cache", "calculator");
     this.cachePath = options?.cachePath ?? join(cacheDir, "boc-rates.json");
-    this.cacheTTL = (options?.cacheTTLMinutes ?? 30) * 60 * 1000;
   }
 
   async getRate(from: string, to: string): Promise<Decimal> {
@@ -86,18 +83,22 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
   }
 
   /**
-   * Fetch rates from BOC page or return cache if fresh.
+   * Read cached rates. Cache is updated daily by boc-warm.timer.
    */
   async fetchRates(): Promise<BOCRateCache> {
-    // Try cache first
-    if (existsSync(this.cachePath)) {
-      const cached = JSON.parse(readFileSync(this.cachePath, "utf-8")) as BOCRateCache;
-      if (Date.now() - new Date(cached.entries[0]?.fetchedAt ?? 0).getTime() < this.cacheTTL) {
-        return cached;
-      }
+    if (!existsSync(this.cachePath)) {
+      throw new Error(
+        "BOC rate cache not found. Run 'boc-warm' or wait for the daily timer (10:40)."
+      );
     }
 
-    // Fetch from BOC
+    return JSON.parse(readFileSync(this.cachePath, "utf-8")) as BOCRateCache;
+  }
+
+  /**
+   * Fetch fresh rates from BOC page and save to cache.
+   */
+  async refreshRates(): Promise<BOCRateCache> {
     const html = await this.fetchBOCPage();
     const entries = this.parseBOCPage(html);
 

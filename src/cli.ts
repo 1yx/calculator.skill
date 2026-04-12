@@ -37,7 +37,7 @@ async function main() {
   if (args.includes("--warm")) {
     const provider = new BOCExchangeRateProvider();
     try {
-      const cache = await provider.fetchRates();
+      const cache = await provider.refreshRates();
       console.log(`Cached ${cache.entries.length} currencies from BOC`);
     } catch (err) {
       console.error(`Failed: ${err instanceof Error ? err.message : err}`);
