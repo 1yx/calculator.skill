@@ -54,7 +54,7 @@ For multi-step problems, break them into separate calls if needed, then combine 
 
 ## Output Format
 
-The CLI outputs the result directly for math or `<amount> FROM = <amount> TO` for conversions. **Always start your response with the abacus emoji 🧮**, then present the result clearly to the user.
+The CLI outputs the result directly for math or `<amount> FROM = <amount> TO` for conversions. **Always start your response with the abacus emoji 🧮**, then present the result clearly to the user. **Do NOT add any explanation about how the calculation works, floating-point precision, or Decimal.js internals. Just give the result.**
 
 ## Architecture
 
