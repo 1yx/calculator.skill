@@ -59,6 +59,7 @@ The CLI outputs the result directly for math or `<amount> FROM = <amount> TO` fo
 ## Architecture
 
 - **Package**: `precision-fx-cli` (GitHub: 1yx/precision-fx-cli)
+- **Project structure**: `src/providers/boc.ts` (BOC provider), `src/calculator.ts` (parser), `src/exchange-rate.ts` (interface + offline fallback), `src/cli.ts` (CLI entry), `src/boc-warm.ts` (warm script)
 - **Math engine**: Recursive descent parser using Decimal.js (20-digit precision, ROUND_HALF_UP). No `eval()` or `new Function()`.
 - **Exchange rate source**: BOC (中国银行外汇牌价) — HTML scraping from `https://www.boc.cn/sourcedb/whpj/`. Uses 中行折算价 (BOC reference rate) per 100 units of foreign currency.
 - **Caching**: Rates cached to `~/Repositories/calculator/cache/boc-rates.json`. Refreshed daily at 10:40 AM by systemd timer `boc-warm.timer`. No TTL expiration — `fetchRates()` reads cache only, `refreshRates()` fetches + writes (used by warm script).
