@@ -16,7 +16,7 @@ async function main() {
   try {
     const cache = await provider.refreshRates();
     console.log(`✅ BOC rates cached: ${cache.entries.length} currencies`);
-    console.log(`   Updated: ${cache.entries[0]?.fetchedAt}`);
+    console.log(`   Updated: ${cache.entries[0]?.fetchedAtISO}`);
     // Show a few sample rates
     const samples = cache.entries.filter(e => ["USD", "EUR", "JPY", "GBP"].includes(e.iso));
     for (const s of samples) {

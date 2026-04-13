@@ -13,6 +13,7 @@
     "test": "tsx --test src/calculator.test.ts"
   },
   "dependencies": {
+    "dayjs": "^1.11.20",
     "decimal.js": "^10.6.0"
   },
   "devDependencies": {

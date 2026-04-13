@@ -1,8 +1,14 @@
 import { Decimal } from "decimal.js";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc.js";
+import timezone from "dayjs/plugin/timezone.js";
 import { ExchangeRateProvider } from "../exchange-rate.js";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // Project root (dist/providers/ → dist/ → project root)
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -43,8 +49,8 @@ export interface BOCRateEntry {
   iso: string;
   cnName: string;
   ratePer100: string; // 中行折算价 per 100 units of foreign currency
-  publishTime: string;
-  fetchedAt: string;
+  publishTimeISO: string;
+  fetchedAtISO: string;
 }
 
 export interface BOCRateCache {
@@ -138,7 +144,7 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
    */
   private parseBOCPage(html: string): BOCRateEntry[] {
     const entries: BOCRateEntry[] = [];
-    const now = new Date().toISOString();
+    const now = dayjs().utc().toISOString();
 
     // Match each <tr data-currency='...'>...</tr> block
     const trRegex = /<tr\s+data-currency='([^']+)'\s*>([\s\S]*?)<\/tr>/g;
@@ -163,12 +169,18 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
 
       if (!bocRate || !iso) continue;
 
+      // Parse "2026/04/14 07:37:58" (Beijing time) → ISO 8601 (UTC)
+      const rawPublish = tdValues[6] || "";
+      const publishTimeISO = dayjs.tz(rawPublish.replace(/\//g, "-"), "Asia/Shanghai").utc().isValid()
+        ? dayjs.tz(rawPublish.replace(/\//g, "-"), "Asia/Shanghai").utc().toISOString()
+        : rawPublish;
+
       entries.push({
         iso,
         cnName,
         ratePer100: bocRate,
-        publishTime: tdValues[6] || "",
-        fetchedAt: now,
+        publishTimeISO,
+        fetchedAtISO: now,
       });
     }
 
