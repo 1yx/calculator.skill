@@ -2,7 +2,7 @@ import { Decimal } from "decimal.js";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc.js";
 import timezone from "dayjs/plugin/timezone.js";
-import { ExchangeRateProvider } from "../exchange-rate.js";
+import { type ExchangeRateProvider } from "../exchange-rate.js";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,66 +11,91 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // Project root (dist/providers/ → dist/ → project root)
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = dirname(dirname(__dirname));
+const moduleDir = dirname(fileURLToPath(import.meta.url));
+const projectRoot = dirname(dirname(moduleDir));
 
 // Currency name → ISO code mapping (Chinese names from BOC page)
 const CN_NAME_TO_ISO: Record<string, string> = {
-  "美元": "USD",
-  "港币": "HKD",
-  "澳大利亚元": "AUD",
-  "欧元": "EUR",
-  "日元": "JPY",
-  "英镑": "GBP",
-  "加拿大元": "CAD",
-  "新加坡元": "SGD",
-  "新西兰元": "NZD",
-  "韩国元": "KRW",
-  "泰国铢": "THB",
-  "瑞士法郎": "CHF",
-  "瑞典克朗": "SEK",
-  "丹麦克朗": "DKK",
-  "挪威克朗": "NOK",
-  "澳门元": "MOP",
-  "卢布": "RUB",
-  "印尼卢比": "IDR",
-  "马来西亚林吉特": "MYR",
-  "菲律宾比索": "PHP",
-  "新台币": "TWD",
-  "阿联酋迪拉姆": "AED",
-  "文莱元": "BND",
-  "巴西雷亚尔": "BRL",
-  "南非兰特": "ZAR",
-  "沙特里亚尔": "SAR",
-  "土耳其里拉": "TRY",
+  美元: "USD",
+  港币: "HKD",
+  澳大利亚元: "AUD",
+  欧元: "EUR",
+  日元: "JPY",
+  英镑: "GBP",
+  加拿大元: "CAD",
+  新加坡元: "SGD",
+  新西兰元: "NZD",
+  韩国元: "KRW",
+  泰国铢: "THB",
+  瑞士法郎: "CHF",
+  瑞典克朗: "SEK",
+  丹麦克朗: "DKK",
+  挪威克朗: "NOK",
+  澳门元: "MOP",
+  卢布: "RUB",
+  印尼卢比: "IDR",
+  马来西亚林吉特: "MYR",
+  菲律宾比索: "PHP",
+  新台币: "TWD",
+  阿联酋迪拉姆: "AED",
+  文莱元: "BND",
+  巴西雷亚尔: "BRL",
+  南非兰特: "ZAR",
+  沙特里亚尔: "SAR",
+  土耳其里拉: "TRY",
 };
 
-export interface BOCRateEntry {
+/** A single exchange rate entry from BOC. */
+export type BOCRateEntry = {
   iso: string;
   cnName: string;
   ratePer100: string; // 中行折算价 per 100 units of foreign currency
   publishTimeISO: string;
   fetchedAtISO: string;
-}
+};
 
-export interface BOCRateCache {
+/** Cache structure for BOC rates. */
+export type BOCRateCache = {
   entries: BOCRateEntry[];
+};
+
+/**
+ * Type guard to validate a parsed JSON object as BOCRateCache.
+ */
+function isBOCRateCache(value: unknown): value is BOCRateCache {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Reflect.has(value, "entries") &&
+    Array.isArray(Reflect.get(value, "entries"))
+  );
 }
 
+/**
+ * BOC exchange rate provider.
+ * Fetches live rates from https://www.boc.cn/sourcedb/whpj/.
+ */
 export class BOCExchangeRateProvider implements ExchangeRateProvider {
   private cachePath: string;
 
+  /** @param options - Optional cache path override. */
   constructor(options?: { cachePath?: string }) {
-    this.cachePath = options?.cachePath ?? join(projectRoot, "cache", "boc-rates.json");
+    this.cachePath =
+      options?.cachePath ?? join(projectRoot, "cache", "boc-rates.json");
   }
 
-  async getRate(from: string, to: string): Promise<Decimal> {
+  /**
+   * Get exchange rate between two currencies via BOC cached rates.
+   * @param from - Source currency code (e.g. "USD")
+   * @param to - Target currency code (e.g. "CNY")
+   */
+  getRate(from: string, to: string): Promise<Decimal> {
     from = from.toUpperCase();
     to = to.toUpperCase();
 
-    if (from === to) return new Decimal(1);
+    if (from === to) return Promise.resolve(new Decimal(1));
 
-    const cache = await this.fetchRates();
+    const cache = this.fetchRates();
 
     // Build rate map: ISO → CNY rate (per 1 unit)
     const rateMap = new Map<string, Decimal>();
@@ -81,27 +106,37 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
     // CNY itself
     rateMap.set("CNY", new Decimal(1));
 
-    if (!rateMap.has(from)) throw new Error(`BOC: 不支持的货币 ${from}`);
-    if (!rateMap.has(to)) throw new Error(`BOC: 不支持的货币 ${to}`);
+    const fromToCNY = rateMap.get(from);
+    if (!fromToCNY) {
+      throw new Error(`BOC: 不支持的货币 ${from}`);
+    }
 
-    // Convert: from → CNY → to
-    const fromToCNY = rateMap.get(from)!;
-    const toToCNY = rateMap.get(to)!;
+    const toToCNY = rateMap.get(to);
+    if (!toToCNY) {
+      throw new Error(`BOC: 不支持的货币 ${to}`);
+    }
 
-    return fromToCNY.div(toToCNY);
+    return Promise.resolve(fromToCNY.div(toToCNY));
   }
 
   /**
    * Read cached rates. Cache is updated daily by boc-warm.timer.
    */
-  async fetchRates(): Promise<BOCRateCache> {
+  fetchRates(): BOCRateCache {
     if (!existsSync(this.cachePath)) {
       throw new Error(
-        "BOC rate cache not found. Run 'boc-warm' or wait for the daily timer (10:40)."
+        "BOC rate cache not found. Run 'boc-warm' or wait for the daily timer (10:40).",
       );
     }
 
-    return JSON.parse(readFileSync(this.cachePath, "utf-8")) as BOCRateCache;
+    const text = readFileSync(this.cachePath, "utf-8");
+    const parsed: unknown = JSON.parse(text);
+
+    if (!isBOCRateCache(parsed)) {
+      throw new Error("BOC rate cache has invalid format");
+    }
+
+    return parsed;
   }
 
   /**
@@ -114,7 +149,11 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
     // Save cache
     const cacheDir = dirname(this.cachePath);
     if (!existsSync(cacheDir)) mkdirSync(cacheDir, { recursive: true });
-    writeFileSync(this.cachePath, JSON.stringify({ entries }, null, 2), "utf-8");
+    writeFileSync(
+      this.cachePath,
+      JSON.stringify({ entries }, null, 2),
+      "utf-8",
+    );
 
     return { entries };
   }
@@ -126,8 +165,9 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
     const url = "https://www.boc.cn/sourcedb/whpj/";
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent":
+          "Mozilla/5.0 (X11; Linux x86_64; rv:115.0) Gecko/20100101 Firefox/115.0",
+        Accept: "text/html,application/xhtml+xml",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
       },
     });
@@ -155,39 +195,57 @@ export class BOCExchangeRateProvider implements ExchangeRateProvider {
       const cells = match[2];
       const iso = CN_NAME_TO_ISO[cnName];
 
-      // Extract all <td> contents
-      const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
-      const tdValues: string[] = [];
-      let tdMatch: RegExpExecArray | null;
-      while ((tdMatch = tdRegex.exec(cells)) !== null) {
-        tdValues.push(tdMatch[1].trim());
-      }
-
-      // tdValues: [名称, 现汇买入, 现钞买入, 现汇卖出, 现钞卖出, 中行折算价, 发布日期时间, 发布时间]
-      // Index 5 = 中行折算价
-      const bocRate = tdValues[5]; // 中行折算价
-
-      if (!bocRate || !iso) continue;
-
-      // Parse "2026/04/14 07:37:58" (Beijing time) → ISO 8601 (UTC)
-      const rawPublish = tdValues[6] || "";
-      const publishTimeISO = dayjs.tz(rawPublish.replace(/\//g, "-"), "Asia/Shanghai").utc().isValid()
-        ? dayjs.tz(rawPublish.replace(/\//g, "-"), "Asia/Shanghai").utc().toISOString()
-        : rawPublish;
+      const parsed = this.parseRow(cells, iso);
+      if (!parsed) continue;
 
       entries.push({
         iso,
         cnName,
-        ratePer100: bocRate,
-        publishTimeISO,
+        ratePer100: parsed.bocRate,
+        publishTimeISO: parsed.publishTimeISO,
         fetchedAtISO: now,
       });
     }
 
     if (entries.length === 0) {
-      throw new Error("BOC page parse error: no rates found. Page structure may have changed.");
+      throw new Error(
+        "BOC page parse error: no rates found. Page structure may have changed.",
+      );
     }
 
     return entries;
+  }
+
+  /**
+   * Extract rate and publish time from a table row's cells.
+   * @param cells - Inner HTML of a <tr> element
+   * @param iso - ISO currency code (null if not in mapping)
+   */
+  private parseRow(
+    cells: string,
+    iso: string | undefined,
+  ): { bocRate: string; publishTimeISO: string } | null {
+    // Extract all <td> contents
+    const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/g;
+    const tdValues: string[] = [];
+    let tdMatch: RegExpExecArray | null;
+    while ((tdMatch = tdRegex.exec(cells)) !== null) {
+      tdValues.push(tdMatch[1].trim());
+    }
+
+    // tdValues: [名称, 现汇买入, 现钞买入, 现汇卖出, 现钞卖出, 中行折算价, 发布日期时间, 发布时间]
+    // Index 5 = 中行折算价
+    const bocRate = tdValues[5];
+
+    if (!bocRate || !iso) return null;
+
+    // Parse "2026/04/14 07:37:58" (Beijing time) → ISO 8601 (UTC)
+    const rawPublish = tdValues[6] || "";
+    const parsed = dayjs
+      .tz(rawPublish.replace(/\//g, "-"), "Asia/Shanghai")
+      .utc();
+    const publishTimeISO = parsed.isValid() ? parsed.toISOString() : rawPublish;
+
+    return { bocRate, publishTimeISO };
   }
 }

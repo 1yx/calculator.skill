@@ -10,6 +10,9 @@
 
 import { BOCExchangeRateProvider } from "./providers/boc.js";
 
+/**
+ *
+ */
 async function main() {
   const provider = new BOCExchangeRateProvider();
 
@@ -18,7 +21,9 @@ async function main() {
     console.log(`✅ BOC rates cached: ${cache.entries.length} currencies`);
     console.log(`   Updated: ${cache.entries[0]?.fetchedAtISO}`);
     // Show a few sample rates
-    const samples = cache.entries.filter(e => ["USD", "EUR", "JPY", "GBP"].includes(e.iso));
+    const samples = cache.entries.filter((e) =>
+      ["USD", "EUR", "JPY", "GBP"].includes(e.iso),
+    );
     for (const s of samples) {
       const rate = (parseFloat(s.ratePer100) / 100).toFixed(4);
       console.log(`   1 ${s.iso} = ${rate} CNY (中行折算价)`);
@@ -29,4 +34,4 @@ async function main() {
   }
 }
 
-main();
+void main();

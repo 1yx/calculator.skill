@@ -4,6 +4,9 @@ import { evaluate, convertCurrency } from "./calculator.js";
 import { BOCExchangeRateProvider } from "./providers/boc.js";
 import { InMemoryExchangeRateProvider } from "./exchange-rate.js";
 
+/**
+ * Print CLI usage information.
+ */
 function printUsage() {
   console.log("Usage: calculator '<expression>'");
   console.log("");
@@ -25,50 +28,105 @@ function printUsage() {
   console.log("  help         Show this help");
 }
 
+/** Options for currency conversion. */
+type CurrencyConvertOptions = {
+  amount: number;
+  from: string;
+  to: string;
+  offline: boolean;
+};
+
+/**
+ * Parse a currency conversion input string.
+ * @param input - Raw input string (e.g. "100 USD to CNY")
+ * @param offline - Whether to use offline mode
+ */
+function parseCurrencyInput(
+  input: string,
+  offline: boolean,
+): CurrencyConvertOptions | null {
+  const currencyMatch = input.match(
+    /^([\d.]+)\s+([A-Za-z]{3})\s+(?:to|->)\s+([A-Za-z]{3})$/i,
+  );
+
+  if (!currencyMatch) return null;
+
+  return {
+    amount: parseFloat(currencyMatch[1]),
+    from: currencyMatch[2],
+    to: currencyMatch[3],
+    offline,
+  };
+}
+
+/**
+ * Run currency conversion with the parsed options.
+ */
+async function runConversion(opts: CurrencyConvertOptions): Promise<void> {
+  const provider = opts.offline
+    ? new InMemoryExchangeRateProvider()
+    : new BOCExchangeRateProvider();
+
+  const result = await convertCurrency({
+    amount: opts.amount,
+    from: opts.from,
+    to: opts.to,
+    provider,
+  });
+  console.log(
+    `${opts.amount} ${opts.from.toUpperCase()} = ${result} ${opts.to.toUpperCase()}`,
+  );
+}
+
+/**
+ * Fetch and cache BOC rates, then exit.
+ */
+async function warmCache(): Promise<void> {
+  const provider = new BOCExchangeRateProvider();
+  try {
+    const cache = await provider.refreshRates();
+    console.log(`Cached ${cache.entries.length} currencies from BOC`);
+  } catch (err) {
+    console.error(`Failed: ${err instanceof Error ? err.message : err}`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Check if the user is asking for help.
+ */
+function isHelpRequest(arg: string | undefined): boolean {
+  return arg === "help" || arg === "--help" || arg === "-h";
+}
+
+/**
+ * Main CLI entry point.
+ */
 async function main() {
   const args = process.argv.slice(2);
 
-  if (args.length === 0 || args[0] === "help" || args[0] === "--help" || args[0] === "-h") {
+  if (args.length === 0 || isHelpRequest(args[0])) {
     printUsage();
     process.exit(0);
   }
 
-  // --warm: just cache rates and exit
   if (args.includes("--warm")) {
-    const provider = new BOCExchangeRateProvider();
-    try {
-      const cache = await provider.refreshRates();
-      console.log(`Cached ${cache.entries.length} currencies from BOC`);
-    } catch (err) {
-      console.error(`Failed: ${err instanceof Error ? err.message : err}`);
-      process.exit(1);
-    }
+    await warmCache();
     return;
   }
 
   const offline = args.includes("--offline");
-  const input = args.filter(a => !a.startsWith("--")).join(" ");
+  const input = args.filter((a) => !a.startsWith("--")).join(" ");
 
   if (!input.trim()) {
     printUsage();
     process.exit(1);
   }
 
-  // Detect currency conversion pattern: "<amount> <CURRENCY> to|-> <CURRENCY>"
-  const currencyMatch = input.match(
-    /^([\d.]+)\s+([A-Za-z]{3})\s+(?:to|->)\s+([A-Za-z]{3})$/i
-  );
-
-  if (currencyMatch) {
-    const amount = parseFloat(currencyMatch[1]);
-    const from = currencyMatch[2];
-    const to = currencyMatch[3];
-    const provider = offline
-      ? new InMemoryExchangeRateProvider()
-      : new BOCExchangeRateProvider();
-
-    const result = await convertCurrency(amount, from, to, provider);
-    console.log(`${amount} ${from.toUpperCase()} = ${result} ${to.toUpperCase()}`);
+  // Detect currency conversion pattern
+  const currencyOpts = parseCurrencyInput(input, offline);
+  if (currencyOpts) {
+    await runConversion(currencyOpts);
     return;
   }
 
@@ -82,4 +140,4 @@ async function main() {
   }
 }
 
-main();
+void main();

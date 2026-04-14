@@ -1,5 +1,8 @@
 import { Decimal } from "decimal.js";
-import { ExchangeRateProvider, InMemoryExchangeRateProvider } from "./exchange-rate.js";
+import {
+  type ExchangeRateProvider,
+  InMemoryExchangeRateProvider,
+} from "./exchange-rate.js";
 
 // Configure Decimal.js: 20 significant digits, banker's rounding
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
@@ -9,6 +12,7 @@ export { InMemoryExchangeRateProvider } from "./exchange-rate.js";
 
 // ============ Tokenizer ============
 
+/** Token types for the calculator lexer. */
 export enum TokenType {
   Number,
   Plus,
@@ -22,11 +26,28 @@ export enum TokenType {
   EOF,
 }
 
-export interface Token {
+/** A lexical token with its type and raw value. */
+export type Token = {
   type: TokenType;
   value: string;
-}
+};
 
+/** Mapping of operator characters to token types. */
+const OPERATOR_TOKENS: Record<string, TokenType> = {
+  "+": TokenType.Plus,
+  "-": TokenType.Minus,
+  "*": TokenType.Star,
+  "/": TokenType.Slash,
+  "%": TokenType.Percent,
+  "^": TokenType.Caret,
+  "(": TokenType.LParen,
+  ")": TokenType.RParen,
+};
+
+/**
+ * Tokenize a math expression string into a stream of tokens.
+ * @param input - The raw expression string
+ */
 function tokenize(input: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
@@ -40,31 +61,41 @@ function tokenize(input: string): Token[] {
     }
 
     if (/[0-9.]/.test(ch)) {
-      let num = "";
-      while (i < input.length && /[0-9.]/.test(input[i])) {
-        num += input[i++];
-      }
-      tokens.push({ type: TokenType.Number, value: num });
+      const num = readNumber(input, i);
+      tokens.push({ type: TokenType.Number, value: num.value });
+      i = num.endIndex;
       continue;
     }
 
-    switch (ch) {
-      case "+": tokens.push({ type: TokenType.Plus, value: ch }); break;
-      case "-": tokens.push({ type: TokenType.Minus, value: ch }); break;
-      case "*": tokens.push({ type: TokenType.Star, value: ch }); break;
-      case "/": tokens.push({ type: TokenType.Slash, value: ch }); break;
-      case "%": tokens.push({ type: TokenType.Percent, value: ch }); break;
-      case "^": tokens.push({ type: TokenType.Caret, value: ch }); break;
-      case "(": tokens.push({ type: TokenType.LParen, value: ch }); break;
-      case ")": tokens.push({ type: TokenType.RParen, value: ch }); break;
-      default:
-        throw new Error(`Unexpected character: '${ch}' at position ${i}`);
+    const tokenType = OPERATOR_TOKENS[ch];
+    if (tokenType !== undefined) {
+      tokens.push({ type: tokenType, value: ch });
+      i++;
+      continue;
     }
-    i++;
+
+    throw new Error(`Unexpected character: '${ch}' at position ${i}`);
   }
 
   tokens.push({ type: TokenType.EOF, value: "" });
   return tokens;
+}
+
+/**
+ * Read a numeric literal from the input starting at position `start`.
+ * @returns The parsed number string and the index after the last digit.
+ */
+function readNumber(
+  input: string,
+  start: number,
+): { value: string; endIndex: number } {
+  let i = start;
+  let num = "";
+  while (i < input.length && /[0-9.]/.test(input[i])) {
+    num += input[i];
+    i++;
+  }
+  return { value: num, endIndex: i };
 }
 
 // ============ Recursive Descent Parser ============
@@ -76,35 +107,51 @@ function tokenize(input: string): Token[] {
 //   unary  = ('-')? primary
 //   primary = NUMBER | '(' expr ')'
 
+/**
+ * Recursive descent parser for math expressions.
+ * Produces Decimal.js results with arbitrary precision.
+ */
 class Parser {
   private tokens: Token[];
   private pos = 0;
 
+  /** @param tokens - The token stream to parse. */
   constructor(tokens: Token[]) {
     this.tokens = tokens;
   }
 
+  /** Peek at the current token without consuming it. */
   private peek(): Token {
     return this.tokens[this.pos];
   }
 
+  /**
+   * Consume the next token, throwing if it doesn't match the expected type.
+   * @param expected - The token type to expect
+   */
   private consume(expected: TokenType): Token {
     const tok = this.tokens[this.pos];
     if (tok.type !== expected) {
-      throw new Error(`Expected ${TokenType[expected]}, got ${TokenType[tok.type]} ('${tok.value}')`);
+      throw new Error(
+        `Expected ${TokenType[expected]}, got ${TokenType[tok.type]} ('${tok.value}')`,
+      );
     }
     this.pos++;
     return tok;
   }
 
+  /** Parse the full expression and return the result. */
   parse(): Decimal {
     const result = this.expr();
     if (this.peek().type !== TokenType.EOF) {
-      throw new Error(`Unexpected token after expression: '${this.peek().value}'`);
+      throw new Error(
+        `Unexpected token after expression: '${this.peek().value}'`,
+      );
     }
     return result;
   }
 
+  /** expr = term (('+' | '-') term)* */
   private expr(): Decimal {
     let left = this.term();
 
@@ -124,6 +171,7 @@ class Parser {
     return left;
   }
 
+  /** term = power (('*' | '/' | '%') power)* */
   private term(): Decimal {
     let left = this.power();
 
@@ -150,6 +198,7 @@ class Parser {
     return left;
   }
 
+  /** power = unary ('^' power)? */
   private power(): Decimal {
     const base = this.unary();
     const tok = this.peek();
@@ -161,6 +210,7 @@ class Parser {
     return base;
   }
 
+  /** unary = ('+' | '-')? primary */
   private unary(): Decimal {
     const tok = this.peek();
     if (tok.type === TokenType.Minus) {
@@ -174,6 +224,7 @@ class Parser {
     return this.primary();
   }
 
+  /** primary = NUMBER | '(' expr ')' */
   private primary(): Decimal {
     const tok = this.peek();
 
@@ -189,7 +240,9 @@ class Parser {
       return result;
     }
 
-    throw new Error(`Unexpected token: '${tok.value}' (type: ${TokenType[tok.type]})`);
+    throw new Error(
+      `Unexpected token: '${tok.value}' (type: ${TokenType[tok.type]})`,
+    );
   }
 }
 
@@ -206,29 +259,30 @@ export function evaluate(expression: string): string {
   return result.toString();
 }
 
+/** Options for currency conversion. */
+type ConvertCurrencyOptions = {
+  amount: number | string | Decimal;
+  from: string;
+  to: string;
+  provider?: ExchangeRateProvider;
+};
+
 /**
  * Convert currency using an exchange rate provider.
- * @param amount - Amount to convert (number, string, or Decimal)
- * @param from - Source currency code (e.g. "USD")
- * @param to - Target currency code (e.g. "CNY")
- * @param provider - Exchange rate provider (defaults to in-memory rates)
+ * @param options - Conversion parameters
  */
 export async function convertCurrency(
-  amount: number | string | Decimal,
-  from: string,
-  to: string,
-  provider?: ExchangeRateProvider
+  options: ConvertCurrencyOptions,
 ): Promise<string> {
-  if (!provider) {
-    provider = new InMemoryExchangeRateProvider();
-  }
+  const { amount, from, to } = options;
+  const provider = options.provider ?? new InMemoryExchangeRateProvider();
 
-  from = from.toUpperCase();
-  to = to.toUpperCase();
+  const upperFrom = from.toUpperCase();
+  const upperTo = to.toUpperCase();
 
-  if (from === to) return new Decimal(amount).toString();
+  if (upperFrom === upperTo) return new Decimal(amount).toString();
 
-  const rate = await provider.getRate(from, to);
+  const rate = await provider.getRate(upperFrom, upperTo);
   const result = new Decimal(amount).times(rate);
 
   // Format to 2 decimal places for currency

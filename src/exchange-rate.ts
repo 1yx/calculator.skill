@@ -1,11 +1,9 @@
 import { Decimal } from "decimal.js";
 
-/**
- * Interface for exchange rate providers.
- */
-export interface ExchangeRateProvider {
+/** Interface for exchange rate providers. */
+export type ExchangeRateProvider = {
   getRate(from: string, to: string): Promise<Decimal>;
-}
+};
 
 /**
  * In-memory exchange rate provider with hardcoded rates.
@@ -32,27 +30,31 @@ export class InMemoryExchangeRateProvider implements ExchangeRateProvider {
     "KRW-USD": new Decimal("0.000741"),
   };
 
-  async getRate(from: string, to: string): Promise<Decimal> {
+  /**
+   * Look up an exchange rate between two currencies.
+   * Tries direct, reverse, then cross via USD.
+   */
+  getRate(from: string, to: string): Promise<Decimal> {
     from = from.toUpperCase();
     to = to.toUpperCase();
 
-    if (from === to) return new Decimal(1);
+    if (from === to) return Promise.resolve(new Decimal(1));
 
     const direct = `${from}-${to}`;
-    if (direct in this.rates) return this.rates[direct];
+    if (direct in this.rates) return Promise.resolve(this.rates[direct]);
 
     // Try reverse
     const reverse = `${to}-${from}`;
     if (reverse in this.rates) {
       const r = this.rates[reverse];
-      return new Decimal(1).div(r);
+      return Promise.resolve(new Decimal(1).div(r));
     }
 
     // Try cross via USD
     const fromUSD = `USD-${from}`;
     const toUSD = `USD-${to}`;
     if (fromUSD in this.rates && toUSD in this.rates) {
-      return this.rates[toUSD].div(this.rates[fromUSD]);
+      return Promise.resolve(this.rates[toUSD].div(this.rates[fromUSD]));
     }
 
     throw new Error(`No exchange rate found for ${from} → ${to}`);
